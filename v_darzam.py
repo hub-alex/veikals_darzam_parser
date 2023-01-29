@@ -1,11 +1,13 @@
+import os
 import requests
 from bs4 import BeautifulSoup
 from time import sleep
 import pandas as pd
 import urllib.request
-import os
+
 
 www = "https://veikalsdarzam.lv/seklas"
+# HTML = "https://veikalsdarzam.lv/seklas/darzenu-seklas/raceni/?precu-zime=organic-way"
 HTML = input("Ievadiet linku: ")
 want_pitures = input("Bildes vajag y/n?")
 pages_list = [HTML]
@@ -63,54 +65,48 @@ def item_content(links_list):
             "accept-language": "en-US,en;q=0.9,lv;q=0.8,ru;q=0.7",
         })
         soup = BeautifulSoup(r.text, features="lxml")
+        # print(soup.prettify)
+        
         try:
-            item_name = soup.find("h1", itemprop='name').next
+            item_name = soup.find("h1", class_="bold-product-title").text
         except AttributeError:
-            print(f"{index + 1}: Nav apraksta {link}")
+            print(f"{index + 1}: Nav nosaukuma {link}")
             item_name = "NAV"
 
         try:
-            item_ean = soup.find("span", itemprop="gtin13").next
+            item_ean = soup.find("span", class_="product-ean13").next.next.text
         except AttributeError:
             print(f"{index + 1}: Nav svītrkoda {link}")
             item_ean = "NAV"
-
+        
         try:
-            item_price = soup.find("p", class_="price").find(itemprop="price").next
+            item_price = soup.find("span", id="our_price_display").next.replace(" €","")
         except AttributeError:
             print(f"{index + 1}: Nav cenas {link}")
             item_price = "NAV"
+        
         try:
-            item_info = soup.find("div", class_="rte").find("p").next.replace("\xa0", "")
+            item_info = soup.find("div", class_="rte").find("p").text
         except:
-            try:
-                item_info = soup.find("div", class_="rte").next.replace("\xa0", "")
-            except:
-                try:
-                    item_info = soup.find("div", class_="rte").find("p").next.next.replace("\xa0", "")
-                except:
-                    print(f"{index + 1}: Nav apraksta {link}")
-                    item_info = "NAV"
+            print(f"{index + 1}: Nav apraksta {link}")
+            item_info = "NAV"
+        
         try:
-            more_info_key = [key.next for key in
-                             soup.find("table", class_="table-data-sheet").findAll("td", itemprop="name")]
+            more_info = [(key.text, value.text) for (key, value) in
+                             soup.find("table", class_="table-data-sheet").findAll("tr")]
         except AttributeError:
             print(f"{index + 1}: Trūkst informācijas {link}")
-            more_info_key = "NAV"
-
-        try:
-            more_info_value = [value.next for value in
-                               soup.find("table", class_="table-data-sheet").findAll("td", itemprop="value")]
-        except AttributeError:
-            print(f"{index + 1}: Trūkst informācijas {link}")
-            more_info_value = "NAV"
+            more_info = "NAV"
+            
         try:
             item_link_picture = soup.find("div", class_="col-xs-12 col-sm-3").find("a").get("href")
+            item_link_picture = item_link_picture.replace("-thickbox_default", "")
         except:
             print(f"{index + 1}: Nav bilžu {link}")
             item_link_picture = "NAV"
-        more_info_together = (', '.join(str(i) for i in [f"{i}: {v}" for i, v in zip(more_info_key, more_info_value)]))
-
+        
+        more_info_together = (', '.join(str(i) for i in [f"{i}: {v}" for i, v in more_info]))
+        
         items_list.append({
             "Nosaukums": item_name,
             "Svītrkods": item_ean,
@@ -120,7 +116,6 @@ def item_content(links_list):
             "Url": link,
             "Bildes": item_link_picture,
         })
-    print(items_list)
     sleep(0.1)
 
 
@@ -130,7 +125,7 @@ def save_file(items):
 
 
 def save_pictures(items_list):
-    FOLDER_name = "\\pictures_vd\\"
+    FOLDER_name = "/pictures_vd/"
     try:
         for count, item in enumerate(items_list):
             pictures_name = os.getcwd() + FOLDER_name + item["Svītrkods"] + item["Bildes"][-4:]
@@ -143,7 +138,6 @@ def save_pictures(items_list):
             sleep(0.1)
     except:
         print("Can`t save picture")
-
 
 pagination(HTML)
 product_link(pages_list)
